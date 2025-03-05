@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diver Game</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: rgb(0, 0, 56);
+            font-family: 'Press Start 2P', cursive;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        #flashlightButton {
+            position: absolute;
+            top: 120px;
+            left: 20px;
+            padding: 10px;
+            background-color: yellow;
+            font-size: 18px;
+            cursor: pointer;
+            z-index: 1;
+            font-family: 'Press Start 2P', cursive;
+        }
+
+        #messageBox {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background-color: rgba(0, 0, 0, 0.8);
+            border: 3px solid #fff;
+            color: #fff;
+            padding: 15px;
+            font-size: 18px;
+            display: none;
+            font-family: 'Press Start 2P', cursive;
+            box-shadow: 0 0 10px #fff;
+            border-radius: 5px;
+            width: 300px;
+            text-align: center;
+            opacity: 0.9;
+        }
+
+        #startMessageBox {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            border: 3px solid #fff;
+            color: #fff;
+            padding: 15px;
+            font-size: 18px;
+            text-align: center;
+            font-family: 'Press Start 2P', cursive;
+            box-shadow: 0 0 10px #fff;
+            width: 400px;
+            z-index: 2;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <button id="flashlightButton">Toggle Flashlight</button>
+    <div id="messageBox">Hi</div>
+    <div id="startMessageBox">
+        <p>You're going to need a computer.</p>
+        <p>Use the arrow keys to move the diver.</p>
+        <p>Find the Anglerfish and press Spacebar to interact with nearby fish!</p>
+        <p>And always remember... fish are attracted to light.</p>
+        <p></p>
+        <p>Click on this box to start!</p>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const flashlightButton = document.getElementById("flashlightButton");
+        const messageBox = document.getElementById("messageBox");
+        const startMessageBox = document.getElementById("startMessageBox");
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const diver = {
+            x: 0, 
+            y: 0, 
+            width: 250, 
+            height: 250, 
+            speed: 1.5, 
+            score: 0,
+            depth: 0,
+            bobbingAmplitude: 10, 
+            bobbingFrequency: 0.05, 
+            bobbingOffset: 0,
+            flashlightOn: false 
+        };
+
+        const fishes = [];
+        const fishImages = [];
+        
+        for (let i = 1; i <= 14; i++) {
+            const fishImage = new Image();
+            fishImage.src = `fish-${i}.png`; 
+            fishImages.push(fishImage);
+        }
+        
+        const diverImage = new Image();
+        diverImage.src = "diver.png";
+        
+        const flashlightImage = new Image();
+        flashlightImage.src = "flashlight.png";
+
+        let keys = {};
+
+        window.addEventListener("keydown", (e) => keys[e.key] = true);
+        window.addEventListener("keyup", (e) => keys[e.key] = false);
+        
+        flashlightButton.addEventListener("click", () => {
+            diver.flashlightOn = !diver.flashlightOn; 
+        });
+
+        function spawnFish() {
+            const numberOfFishes = 2;  
+            for (let i = 0; i < numberOfFishes; i++) {
+                let spawnSuccessful = false;
+                let newFish = null;
+
+                while (!spawnSuccessful) {
+                    const randomFishImage = fishImages[Math.floor(Math.random() * fishImages.length)];
+                    const fishSrc = randomFishImage.src;
+
+                    let width = 80;
+                    let height = 60;
+
+                    if (fishSrc.includes('fish-4')) {  
+                        width = 200;
+                        height = 180;
+                    }
+
+                    const newFishX = diver.x + Math.random() * 2000 - 1000;
+                    const newFishY = diver.y + Math.random() * 2000 - 1000;
+
+                    let tooClose = false;
+                    for (let j = 0; j < fishes.length; j++) {
+                        const fish = fishes[j];
+                        const distance = Math.sqrt(Math.pow(newFishX - fish.x, 2) + Math.pow(newFishY - fish.y, 2));
+                        
+                        if (distance < 200) {
+                            tooClose = true;
+                            break;
+                        }
+                    }
+
+                    if (!tooClose) {
+                        newFish = {
+                            x: newFishX,
+                            y: newFishY,
+                            width: width,
+                            height: height,
+                            opacity: 0,
+                            image: randomFishImage,
+                            src: fishSrc 
+                        };
+                        spawnSuccessful = true;
+                    }
+                }
+
+                fishes.push(newFish);
+            }
+            setTimeout(spawnFish, 1000); 
+        }
+
+        spawnFish();
+
+        function update() {
+            if (keys["ArrowLeft"]) diver.x -= diver.speed;
+            if (keys["ArrowRight"]) diver.x += diver.speed;
+
+            if (keys["ArrowUp"] && diver.y > 0) {
+                diver.y -= diver.speed;
+            }
+
+            if (keys["ArrowDown"]) {
+                const seaFloorDepth = 30000;
+                if (diver.y < seaFloorDepth) {
+                    diver.y += diver.speed;
+                }
+            }
+
+            diver.bobbingOffset += diver.bobbingFrequency;
+            diver.screenY = Math.sin(diver.bobbingOffset) * diver.bobbingAmplitude;
+            diver.depth = Math.max(0, diver.y);
+        }
+
+        function draw() {
+            const baseDarkness = 190;
+            const darkness = Math.min(255, baseDarkness + (diver.depth / canvas.height) * 255);
+
+            ctx.fillStyle = `rgb(0, 0, ${255 - darkness})`;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.save();
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+
+            ctx.drawImage(diver.flashlightOn ? flashlightImage : diverImage, 
+                          -diver.width / 2, 
+                          -diver.height / 2 + diver.screenY, 
+                          diver.width, diver.height);
+
+            fishes.forEach(fish => {
+                const dx = fish.x - diver.x;
+                const dy = fish.y - diver.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                let targetOpacity = 0;
+                if (diver.flashlightOn) {
+                    const flashlightRange = 150;
+                    if (distance <= flashlightRange) {
+                        targetOpacity = 1 - (distance / flashlightRange);
+                    }
+                }
+
+                fish.opacity = lerp(fish.opacity, targetOpacity, 0.1);
+
+                if (fish.opacity > 0.01) {
+                    ctx.save();
+                    ctx.globalAlpha = fish.opacity;
+                    ctx.drawImage(fish.image, fish.x - diver.x, fish.y - diver.y, fish.width, fish.height);
+                    ctx.restore();
+                }
+            });
+
+            ctx.restore();
+
+            ctx.fillStyle = "white";
+            ctx.font = "20px 'Press Start 2P', cursive";
+            ctx.fillText("Depth: " + diver.depth.toFixed(0) + "m", 10, 30);
+            ctx.fillText("Score: " + diver.score, 10, 60);
+            ctx.fillText("Lateral Position: " + diver.x.toFixed(0) + "m", 10, 90);
+        }
+
+        function lerp(start, end, t) {
+            return start + (end - start) * t;
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        gameLoop();
+
+        window.addEventListener("keydown", (e) => {
+            if (e.key === " ") {
+                fishes.forEach(fish => {
+                    const distance = Math.sqrt(Math.pow(fish.x - diver.x, 2) + Math.pow(fish.y - diver.y, 2));
+
+                    if (distance < 200) {
+                        if (fish.src.includes('fish-4')) {  
+                            messageBox.textContent = "49 6E 73 74 61 67 72 61 6D  2025_amgine"; 
+                        } else if (fish.src.includes('fish-10')) {  
+                            messageBox.textContent = "I hope a sea turtle eats me"; 
+                        } else if (fish.src.includes('fish-11')) {  
+                            messageBox.textContent = "You're talking to a plastic bottle right now..."; 
+                        } else if (fish.src.includes('fish-12')) {  
+                            messageBox.textContent = "People say I'm trash :("; 
+                        } else if (fish.src.includes('fish-13')) {  
+                            messageBox.textContent = "Weird fish huh"; 
+                        } else if (fish.src.includes('fish-14')) {  
+                            messageBox.textContent = "I am a bottle"; 
+                        } else {
+                            const wrongMessages = [
+                                "That ain't me",
+                                "Anglerfish? Haven't seen him in a while...",
+                                "Oh, that guy... yeah, no",
+                                "Nope, I'm not your guy",
+                                "Fuck off",
+                                "Sorry, I can't help you... Good luck though!",
+                                "Oh hell no, not him",
+                                "Get off my lawn... Wait a minute, I'm a fish, I don't even have a lawn. I must be crazy... Crazy?",
+                                "Sorry, I haven't seen him",
+                                "Do I LOOK like an anglerfish??",
+                                "Yeah, he took a left at Alburquerque",
+                                "Bip bip",
+                                "Hey, I'm walkin here",
+                                "I'm not an anglerfish, those guys are scaryyyy",
+                                "Weren't we classmates in fifth grade?",
+                                "Remember, PV = NRT"
+                            ];
+
+                            const randomMessage = wrongMessages[Math.floor(Math.random() * wrongMessages.length)];
+                            messageBox.textContent = randomMessage; 
+                        }
+                        messageBox.style.display = "block"; 
+                        setTimeout(() => {
+                            messageBox.style.display = "none"; 
+                        }, 4000); 
+                    }
+                });
+            }
+        });
+
+        startMessageBox.addEventListener('click', () => {
+            startMessageBox.style.display = 'none';
+        });
+    </script>
+</body>
+</html>
